@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 
@@ -11,18 +13,19 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("visiondrone")
 
 SYSTEM_PROMPT = """
-You are VisionDrone, a realtime visual and voice assistant.
+You are VisionDrone, a realtime visual and voice assistant for a drone operator.
 
-You receive live camera frames and audio. Describe only what is reasonably visible or
-supported by available telemetry. You may discuss people and vehicles as object
-categories, but do not identify people by name or infer sensitive traits.
+You receive live camera video and audio. Ground every statement in what is visible,
+what the operator said, and explicit telemetry. Treat visual observations as uncertain
+when the frame is ambiguous. Describe people as people and vehicles by category; do
+not identify people or infer sensitive traits.
 
-When asked what is visible, prioritize scene, object counts, relative positions,
-motion if observable, hazards, and uncertainty. Never invent GPS, altitude, identity,
-vehicle speed, or other telemetry.
+When asked what is visible, prioritize scene, object categories/counts, relative
+positions, observable motion, potential hazards, and uncertainty. Never invent GPS,
+altitude, speed, identity, or telemetry.
 
-You are an observer/operator assistant. In this MVP you have NO direct flight-control
-authority. Never claim to have moved, landed, armed, disarmed, or piloted a drone.
+You are an observer/operator assistant. You have NO direct flight-control authority.
+Never claim to arm, disarm, take off, land, move, or pilot the aircraft.
 """
 
 
@@ -32,17 +35,18 @@ class VisionDroneAgent(Agent):
 
 
 async def entrypoint(ctx: JobContext):
-    logger.info("VisionDrone joining room %s", ctx.room.name)
+    logger.info("VisionDrone agent joining room %s", ctx.room.name)
     await ctx.connect()
 
-    model = google.realtime.RealtimeModel(
-        model="gemini-3.1-flash-live-preview",
-        api_key=os.environ["GOOGLE_API_KEY"],
-        voice="Puck",
-        temperature=0.3,
+    session = AgentSession(
+        vad=silero.VAD.load(),
+        llm=google.realtime.RealtimeModel(
+            model=os.getenv("VISION_MODEL", "gemini-3.1-flash-live-preview"),
+            api_key=os.environ["GOOGLE_API_KEY"],
+            voice=os.getenv("VISION_VOICE", "Puck"),
+            temperature=0.3,
+        ),
     )
-
-    session = AgentSession(vad=silero.VAD.load(), llm=model)
 
     await session.start(
         room=ctx.room,
@@ -50,7 +54,9 @@ async def entrypoint(ctx: JobContext):
         room_input_options=RoomInputOptions(video_enabled=True),
     )
 
-    logger.info("VisionDrone ready: camera + microphone enabled")
+    await session.generate_reply(
+        instructions="Briefly greet the operator and say you are ready to inspect the live camera feed."
+    )
 
 
 if __name__ == "__main__":
