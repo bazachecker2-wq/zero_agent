@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends alsa-utils libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY agent ./agent
 COPY vision ./vision
@@ -16,4 +17,4 @@ COPY edge ./edge
 COPY api.py server.py ./
 
 EXPOSE 8000
-CMD ["python", "-m", "agent.main", "start"]
+CMD ["python", "-m", "agent.main_telemetry", "start"]
