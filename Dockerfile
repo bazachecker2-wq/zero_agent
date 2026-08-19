@@ -12,6 +12,7 @@ COPY vision ./vision
 COPY drone ./drone
 COPY mcp ./mcp
 COPY web ./web
+COPY edge ./edge
 COPY api.py server.py ./
 
 EXPOSE 8000
