@@ -9,17 +9,17 @@ from contextlib import suppress
 
 from livekit import api, rtc
 
+from edge.media import publish_v4l2_video
 from edge.speedybee_msp import SpeedyBeeMSP
 
 logger = logging.getLogger("visiondrone.edge")
 
 
 class EdgeLiveKitClient:
-    """Onboard participant: publishes camera/video and SpeedyBee telemetry.
+    """Onboard participant: camera + SpeedyBee telemetry in one LiveKit room.
 
-    Audio is optional here: for production audio capture, use the host's native
-    microphone/ALSA/PulseAudio pipeline or an application-specific AudioSource.
-    This client deliberately does not send flight-control commands.
+    The client is intentionally read-only with respect to the flight controller.
+    It never sends ARM, RC, motor, configuration, or navigation commands.
     """
 
     def __init__(self) -> None:
@@ -31,6 +31,7 @@ class EdgeLiveKitClient:
         self.telemetry_interval = float(os.getenv("SPEEDYBEE_INTERVAL", "0.25"))
         self.camera_device = os.getenv("CAMERA_DEVICE", "/dev/video0")
         self.camera_fps = int(os.getenv("CAMERA_FPS", "20"))
+        self.camera_enabled = os.getenv("EDGE_CAMERA_ENABLED", "true").lower() in {"1", "true", "yes"}
         self.room = rtc.Room()
         self._stop = asyncio.Event()
         self._msp: SpeedyBeeMSP | None = None
@@ -40,7 +41,7 @@ class EdgeLiveKitClient:
             api.AccessToken(self.api_key, self.api_secret)
             .with_identity(self.identity)
             .with_name("VisionDrone Edge")
-            .with_grants(api.VideoGrants(room_join=True, room=self.room_name))
+            .with_grants(api.VideoGrants(room_join=True, room=self.room_name, can_publish=True, can_subscribe=True))
             .to_jwt()
         )
 
@@ -63,8 +64,6 @@ class EdgeLiveKitClient:
                     "ts": time.time(),
                     "data": state.as_dict(),
                 }
-                # Telemetry is a continuous stream: lossy is preferred so stale
-                # samples never queue behind newer samples.
                 await self.room.local_participant.publish_data(
                     json.dumps(payload, separators=(",", ":")).encode(),
                     reliable=False,
@@ -79,6 +78,9 @@ class EdgeLiveKitClient:
     async def run(self) -> None:
         await self.connect()
         tasks = [asyncio.create_task(self.publish_telemetry())]
+        if self.camera_enabled:
+            await publish_v4l2_video(self.room, self.camera_device, self.camera_fps)
+            logger.info("Camera published: %s @ %s FPS", self.camera_device, self.camera_fps)
         try:
             await self._stop.wait()
         finally:
