@@ -1,23 +1,39 @@
 # Edge Drone Client — SpeedyBee F405 V3
 
-The edge layer runs beside the camera and reads **read-only** Betaflight MSP telemetry from a SpeedyBee F405 V3.
+The edge computer runs beside the camera and reads **read-only** Betaflight MSP telemetry from a SpeedyBee F405 V3, then publishes it into the same LiveKit room as the drone media.
 
-## Hardware path
+## Realtime path
 
-`SpeedyBee F405 V3 -> USB/UART -> Edge computer -> LiveKit/WebRTC -> Vision Agent`
-
-The F405 V3 is a Betaflight target named `SPEEDYBEEF405V3`. Its current Betaflight target exposes MSP on UART4 by default, while UART5 is the ESC sensor port. Verify the actual UART assignment in Betaflight Configurator before wiring the edge computer.
-
-## Local test
-
-```bash
-export SPEEDYBEE_PORT=/dev/ttyUSB0
-export SPEEDYBEE_BAUD=115200
-python -m edge.telemetry_bridge
+```text
+Camera ────────────────> LiveKit video track
+Microphone ────────────> LiveKit audio track
+SpeedyBee F405 V3 ─MSP─> Edge ─> LiveKit data packet: drone.telemetry
+                                      |
+                                      v
+                              VisionDrone Agent
 ```
 
-The bridge emits newline-delimited JSON events. It does not send ARM, RC, motor, configuration, or other control commands.
+The F405 V3 is a Betaflight target named `SPEEDYBEEF405V3`. Verify the actual UART assignment and wiring in Betaflight Configurator before connecting the edge computer.
 
-## Camera / LiveKit
+## Run telemetry publisher
 
-The next edge process can run beside this bridge and publish the camera and microphone into the same LiveKit room. LiveKit Agents supports realtime audio/video/data and live video input with supported realtime models.
+```bash
+export LIVEKIT_URL=wss://YOUR_PROJECT.livekit.cloud
+export LIVEKIT_API_KEY=...
+export LIVEKIT_API_SECRET=...
+export LIVEKIT_ROOM=visiondrone
+export SPEEDYBEE_PORT=/dev/ttyUSB0
+export SPEEDYBEE_BAUD=115200
+export SPEEDYBEE_INTERVAL=0.25
+python -m edge.livekit_client
+```
+
+Telemetry is published on the `drone.telemetry` topic as lossy packets. This is deliberate: for continuous telemetry, a newer sample is more useful than retransmitting a stale sample.
+
+## Camera/audio boundary
+
+`livekit_client.py` is telemetry-first. The camera and microphone are intended to be published as normal LiveKit media tracks by the edge media process using the host's V4L2/ALSA devices. Keeping media capture separate avoids coupling hardware-specific Linux capture code to the flight-controller serial adapter.
+
+## Safety boundary
+
+The edge process is read-only with respect to the flight controller. It does not implement ARM/DISARM, RC injection, motor control, configuration writes, or autonomous flight commands.
