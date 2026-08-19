@@ -13,3 +13,21 @@ services:
     command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
+
+  visiondrone-edge:
+    build:
+      context: .
+      dockerfile: edge/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LIVEKIT_ROOM: ${LIVEKIT_ROOM:-visiondrone}
+      SPEEDYBEE_PORT: ${SPEEDYBEE_PORT:-/dev/ttyUSB0}
+      CAMERA_DEVICE: ${CAMERA_DEVICE:-/dev/video0}
+      EDGE_CAMERA_ENABLED: ${EDGE_CAMERA_ENABLED:-true}
+    devices:
+      - ${CAMERA_DEVICE:-/dev/video0}:${CAMERA_DEVICE:-/dev/video0}
+      - ${SPEEDYBEE_PORT:-/dev/ttyUSB0}:${SPEEDYBEE_PORT:-/dev/ttyUSB0}
+    group_add:
+      - video
+    network_mode: host
