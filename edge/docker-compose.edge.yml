@@ -1,0 +1,20 @@
+services:
+  visiondrone-edge:
+    build:
+      context: ..
+      dockerfile: edge/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    environment:
+      CAMERA_DEVICE: /dev/video0
+      EDGE_CAMERA_ENABLED: "true"
+      SPEEDYBEE_PORT: /dev/ttyUSB0
+      SPEEDYBEE_BAUD: "115200"
+      LIVEKIT_ROOM: visiondrone
+    group_add:
+      - video
+    network_mode: host
