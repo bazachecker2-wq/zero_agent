@@ -10,3 +10,4 @@ numpy>=1.26,<3
 opencv-python-headless>=4.10,<5
 ultralytics>=8.3,<9
 pyserial>=3.5,<4
+pyserial-asyncio>=0.6,<1
