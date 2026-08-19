@@ -11,5 +11,8 @@ COPY agent ./agent
 COPY vision ./vision
 COPY drone ./drone
 COPY mcp ./mcp
+COPY web ./web
+COPY api.py server.py ./
 
+EXPOSE 8000
 CMD ["python", "-m", "agent.main", "start"]
