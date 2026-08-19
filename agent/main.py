@@ -1,7 +1,7 @@
 import logging
 import os
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentSession, JobContext, RoomInputOptions
 from livekit.plugins import google, silero
@@ -14,10 +14,10 @@ SYSTEM_PROMPT = """
 You are VisionDrone, a realtime visual and voice assistant.
 
 You receive live camera frames and audio. Describe only what is reasonably visible or
-supported by the available telemetry. You can discuss people and vehicles as object
+supported by available telemetry. You may discuss people and vehicles as object
 categories, but do not identify people by name or infer sensitive traits.
 
-When asked what is visible, prioritize: scene, object counts, relative positions,
+When asked what is visible, prioritize scene, object counts, relative positions,
 motion if observable, hazards, and uncertainty. Never invent GPS, altitude, identity,
 vehicle speed, or other telemetry.
 
@@ -32,30 +32,25 @@ class VisionDroneAgent(Agent):
 
 
 async def entrypoint(ctx: JobContext):
-    logger.info("VisionDrone agent joining room %s", ctx.room.name)
+    logger.info("VisionDrone joining room %s", ctx.room.name)
     await ctx.connect()
 
-    session = AgentSession(
-        vad=silero.VAD.load(),
-        llm=google.realtime.RealtimeModel(
-            model="gemini-2.0-flash-live-001",
-            api_key=os.environ["GOOGLE_API_KEY"],
-            voice="Puck",
-            temperature=0.3,
-        ),
+    model = google.realtime.RealtimeModel(
+        model="gemini-3.1-flash-live-preview",
+        api_key=os.environ["GOOGLE_API_KEY"],
+        voice="Puck",
+        temperature=0.3,
     )
+
+    session = AgentSession(vad=silero.VAD.load(), llm=model)
 
     await session.start(
         room=ctx.room,
         agent=VisionDroneAgent(),
-        room_input_options=RoomInputOptions(
-            video_enabled=True,
-        ),
+        room_input_options=RoomInputOptions(video_enabled=True),
     )
 
-    await session.generate_reply(
-        instructions="Briefly greet the operator and say you are ready to inspect the live camera feed."
-    )
+    logger.info("VisionDrone ready: camera + microphone enabled")
 
 
 if __name__ == "__main__":
