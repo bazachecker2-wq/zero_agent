@@ -3,3 +3,13 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    depends_on:
+      - visiondrone-api
+
+  visiondrone-api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
