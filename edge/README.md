@@ -1,39 +1,39 @@
-# Edge Drone Client — SpeedyBee F405 V3
+# VisionDrone Edge Client
 
-The edge computer runs beside the camera and reads **read-only** Betaflight MSP telemetry from a SpeedyBee F405 V3, then publishes it into the same LiveKit room as the drone media.
+The onboard client joins one LiveKit room and publishes:
 
-## Realtime path
+- V4L2 camera as a WebRTC video track;
+- read-only SpeedyBee F405 V3 / Betaflight MSP telemetry as a lossy LiveKit data stream on `drone.telemetry`.
 
-```text
-Camera ────────────────> LiveKit video track
-Microphone ────────────> LiveKit audio track
-SpeedyBee F405 V3 ─MSP─> Edge ─> LiveKit data packet: drone.telemetry
-                                      |
-                                      v
-                              VisionDrone Agent
-```
+The flight controller is never given ARM, RC, motor, navigation, or configuration commands.
 
-The F405 V3 is a Betaflight target named `SPEEDYBEEF405V3`. Verify the actual UART assignment and wiring in Betaflight Configurator before connecting the edge computer.
-
-## Run telemetry publisher
+## Linux test
 
 ```bash
-export LIVEKIT_URL=wss://YOUR_PROJECT.livekit.cloud
+export LIVEKIT_URL=wss://your-livekit-host
 export LIVEKIT_API_KEY=...
 export LIVEKIT_API_SECRET=...
 export LIVEKIT_ROOM=visiondrone
 export SPEEDYBEE_PORT=/dev/ttyUSB0
-export SPEEDYBEE_BAUD=115200
-export SPEEDYBEE_INTERVAL=0.25
+export CAMERA_DEVICE=/dev/video0
 python -m edge.livekit_client
 ```
 
-Telemetry is published on the `drone.telemetry` topic as lossy packets. This is deliberate: for continuous telemetry, a newer sample is more useful than retransmitting a stale sample.
+Verify devices first:
 
-## Camera/audio boundary
+```bash
+v4l2-ctl --list-devices
+ls -l /dev/ttyUSB* /dev/ttyACM*
+```
 
-`livekit_client.py` is telemetry-first. The camera and microphone are intended to be published as normal LiveKit media tracks by the edge media process using the host's V4L2/ALSA devices. Keeping media capture separate avoids coupling hardware-specific Linux capture code to the flight-controller serial adapter.
+## Docker
 
-## Safety boundary
+```bash
+docker compose -f edge/docker-compose.edge.yml up --build
+```
 
-The edge process is read-only with respect to the flight controller. It does not implement ARM/DISARM, RC injection, motor control, configuration writes, or autonomous flight commands.
+The compose file uses host networking because WebRTC/UDP connectivity is sensitive to NAT. The camera and serial device paths must be changed to match the actual edge computer.
+
+## Audio
+
+The edge media path intentionally does not guess an ALSA device. A board-specific audio capture pipeline should publish an `AudioSource`/track after the camera path is validated. This avoids silently selecting the wrong microphone on embedded Linux.
