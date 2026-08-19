@@ -25,9 +25,19 @@ services:
       SPEEDYBEE_PORT: ${SPEEDYBEE_PORT:-/dev/ttyUSB0}
       CAMERA_DEVICE: ${CAMERA_DEVICE:-/dev/video0}
       EDGE_CAMERA_ENABLED: ${EDGE_CAMERA_ENABLED:-true}
+      EDGE_AUDIO_ENABLED: ${EDGE_AUDIO_ENABLED:-false}
+      AUDIO_DEVICE: ${AUDIO_DEVICE:-default}
+      AUDIO_SAMPLE_RATE: ${AUDIO_SAMPLE_RATE:-48000}
+      AUDIO_CHANNELS: ${AUDIO_CHANNELS:-1}
+      AUDIO_FRAME_MS: ${AUDIO_FRAME_MS:-20}
+      YOLO_ENABLED: ${YOLO_ENABLED:-true}
+      YOLO_MODEL: ${YOLO_MODEL:-yolo11n.pt}
+      YOLO_EVERY_N_FRAMES: ${YOLO_EVERY_N_FRAMES:-5}
     devices:
       - ${CAMERA_DEVICE:-/dev/video0}:${CAMERA_DEVICE:-/dev/video0}
       - ${SPEEDYBEE_PORT:-/dev/ttyUSB0}:${SPEEDYBEE_PORT:-/dev/ttyUSB0}
+      - /dev/snd:/dev/snd
     group_add:
       - video
+      - audio
     network_mode: host
